@@ -1,5 +1,7 @@
 defmodule Slack.BotTest do
   use ExUnit.Case
+  import Mock
+  alias Slack.Web.{Bots, Channels, Groups, Im, Users}
 
   defmodule Bot do
     use Slack
@@ -8,32 +10,35 @@ defmodule Slack.BotTest do
   @rtm %{
     url: "http://example.com",
     self: %{name: "fake"},
-    team: %{name: "Foo"},
-    bots: [%{id: "123"}],
-    channels: [%{id: "123"}],
-    groups: [%{id: "123"}],
-    users: [%{id: "123"}],
-    ims: [%{id: "123"}]
+    team: %{name: "Foo"}
   }
 
   test "init formats rtm results properly" do
-    {:reconnect, %{slack: slack, bot_handler: bot_handler}} =
-      Slack.Bot.init(%{
-        bot_handler: Bot,
-        rtm: @rtm,
-        client: FakeWebsocketClient,
-        token: "ABC",
-        initial_state: nil
-      })
+    with_mocks([
+      {Bots, [], [info: fn _token -> %{"bot" => %{id: "123"}} end]},
+      {Channels, [], [list: fn _token -> %{"channels" => [%{id: "123"}]} end]},
+      {Groups, [], [list: fn _token -> %{"groups" => [%{id: "123"}]} end]},
+      {Im, [], [list: fn _token -> %{"ims" => [%{id: "123"}]} end]},
+      {Users, [], [list: fn _token -> %{"members" => [%{id: "123"}]} end]}
+    ]) do
+      {:reconnect, %{slack: slack, bot_handler: bot_handler}} =
+        Slack.Bot.init(%{
+          bot_handler: Bot,
+          rtm: @rtm,
+          client: FakeWebsocketClient,
+          token: "ABC",
+          initial_state: nil
+        })
 
-    assert bot_handler == Bot
-    assert slack.me.name == "fake"
-    assert slack.team.name == "Foo"
-    assert slack.bots == %{"123" => %{id: "123"}}
-    assert slack.channels == %{"123" => %{id: "123"}}
-    assert slack.groups == %{"123" => %{id: "123"}}
-    assert slack.users == %{"123" => %{id: "123"}}
-    assert slack.ims == %{"123" => %{id: "123"}}
+      assert bot_handler == Bot
+      assert slack.me.name == "fake"
+      assert slack.team.name == "Foo"
+      assert slack.bots == %{"123" => %{id: "123"}}
+      assert slack.channels == %{"123" => %{id: "123"}}
+      assert slack.groups == %{"123" => %{id: "123"}}
+      assert slack.users == %{"123" => %{id: "123"}}
+      assert slack.ims == %{"123" => %{id: "123"}}
+    end
   end
 
   defmodule Stubs.Slack.Rtm do
